@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./styles.css">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Multiplayer Minesweeper</h1>
+    <button id="createBtn">Create New Game</button>
+    <br>
+    <input type="text" id="roomTxt" placeholder="Enter lobby id">
+    <input type="text" id="userNameTxt" placeholder="Enter your player name">
+    <button id="joinBtn">Join Game</button>
+    <button id="leaveBtn">Leave Game</button>
+
+    <div id="container">
+    </div>
+    <div style="margin-top: 5px;">Players:</div>
+    <li id="playersList"></li>
+
+    <script>
+        let clientId = null
+        let roomId = null
+        let playersList = []
+        const createBtn = document.getElementById('createBtn')
+        const joinBtn = document.getElementById('joinBtn')
+        const leaveBtn = document.getElementById('leaveBtn')
+        const roomTxt = document.getElementById('roomTxt')
+        const playersListCon = document.getElementById('playersList')
+        const userNameTxt = document.getElementById('userNameTxt')
+        const socket = new WebSocket('')
+        createBtn.addEventListener('click',()=>{
+            socket.send(JSON.stringify({
+                'method':'create',
+                'userName':userNameTxt.value
+            }))
+        })
+        joinBtn.addEventListener('click',()=>{
+            socket.send(JSON.stringify({
+                'method':'join',
+                'roomId':roomTxt.value,
+                'userName':userNameTxt.value
+            }))
+        })
+        leaveBtn.addEventListener('click',()=>{
+            socket.send(JSON.stringify({
+                'method':'leave',
+            }))
+        })
+
+        const container = document.getElementById('container')
+
+        let squares = []
+
+        for(let i=0;i<100;i++){
+            const element = document.createElement('div')
+            element.classList.add('item')
+            
+            element.addEventListener('click',()=>{
+                if(roomId===null) return
+                socket.send(JSON.stringify({
+                    'method':'put',
+                    'roomId':roomId,
+                    'mine':i
+                }))
+            })
+            squares.push(element)
+            container.appendChild(element)
+        }
+
+        socket.addEventListener('message',(message)=>{
+            const data = JSON.parse(message.data)
+
+            if(data.method === 'open'){
+                console.log('Your Client Id: '+data.clientId)
+                clientId = data.clientId
+            }
+            if(data.method === 'create'){
+                console.log('Your Room Id: '+data.roomId)
+                roomId = data.roomId
+
+                //Create username field and append to array&dom
+                const ul = document.createElement('ul')
+                ul.innerText = userNameTxt.value
+                playersList.push(ul)
+                playersListCon.appendChild(ul)
+            }
+            if(data.method === 'join'){
+                console.log('You Joined Room: '+data.roomId)
+                roomId = data.roomId
+                data.userNames.forEach(name => {
+                    const ul = document.createElement('ul')
+                    ul.innerText = name
+                    playersList.push(ul)
+                    playersListCon.appendChild(ul)
+                });
+                const mines = data.mines
+                for(let i=0;i<squares.length;i++){
+                    if(mines[i]===true){
+                    squares[i].style.background = 'green'
+                }
+                else{
+                    squares[i].style.background = 'red'
+                }
+                }
+            }
+            if(data.method === 'put'){
+                console.log('put')
+                const mines = data.mines
+                for(let i=0;i<squares.length;i++){
+                    if(mines[i]===true){
+                    squares[i].style.background = 'green'
+                }
+                else{
+                    squares[i].style.background = 'red'
+                }
+                }
+            }
+            if(data.method === 'newPlayer'){
+                const ul = document.createElement('ul')
+                ul.innerText = data.userName
+                playersList.push(ul)
+                playersListCon.appendChild(ul)
+            }
+            if(data.method === 'removeUser'){
+                playersList.forEach(ul => {
+                    if(ul.innerText===data.userName){
+                        const deleteIndex = playersList.indexOf(ul)
+                        playersList.splice(deleteIndex,1)
+                        ul.remove()
+                        return
+                    }
+                });
+            }
+            if(data.method === 'leave'){
+                roomId = null
+            }
+        })
+    </script>
+</body>
+</html>
