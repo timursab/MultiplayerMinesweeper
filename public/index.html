@@ -31,7 +31,7 @@
         const roomTxt = document.getElementById('roomTxt')
         const playersListCon = document.getElementById('playersList')
         const userNameTxt = document.getElementById('userNameTxt')
-        const socket = new WebSocket('ws://multiplayerminesweeper-production.up.railway.app/')
+        const socket = new WebSocket('wss://multiplayerminesweeper-production.up.railway.app/')
         createBtn.addEventListener('click',()=>{
             socket.send(JSON.stringify({
                 'method':'create',
