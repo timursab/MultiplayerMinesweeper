@@ -5,7 +5,7 @@ const WebSocket = require('ws')
 
 const wss = new WebSocket.Server({server})
 const rooms = {}
-
+const PORT = process.env.PORT || 3000
 function connectionExists(value) {
     for (const room in rooms) {
         for (const obj of rooms[room].clients) {
@@ -163,4 +163,4 @@ const guid=()=> {
 //Express and Ws on the same port/server
 server.on('request',app)
 
-server.listen(3000,()=>{console.log('Listening on port: 3000')})
+server.listen(PORT,()=>{console.log('Listening on port: '+PORT)})
