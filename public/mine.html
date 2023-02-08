@@ -15,28 +15,152 @@
     <script>
         const container = document.getElementById('container')
 
+        let state = []
+        //Generate 10 mines
+        function createField(){
+            let board = []
+            //Create the board (2d array)with all squares set to 0
+            for (let y = 0; y < 10; y++) {
+                board[y]=[]
+                state[y] = []
+                for (let x = 0; x < 10; x++) {
+                    board[y][x] = 0;
+                    state[y][x] = false
+                }
+            }
+            //Position the mines randomly
+            for(let i = 0; i < 15; i++){
+                const y = Math.floor(Math.random()*10)
+                const x = Math.floor(Math.random()*10)
+                board[y][x] = 'X'
+            }
+            //Set mine count
+            for (let y = 0; y < 10; y++) {
+                for (let x = 0; x < 10; x++) {
+                    if(board[y][x]==='X') continue
+                    let count = 0
+                    if(board[y][x+1]==='X') count++ //Right
+                    if(board[y][x-1]==='X') count++ //Left
+                    if(y !== 0 && board[y-1][x]==='X') count++ //Top
+                    if(y !== 9 && board[y+1][x]==='X') count++ //Bottom
+                    if(y !== 0 && board[y-1][x-1]==='X') count++ //TopLeft
+                    if(y !== 0 && board[y-1][x+1]==='X') count++ //TopRight
+                    if(y !== 9 && board[y+1][x-1]==='X') count++ //BottomLeft
+                    if(y !== 9 && board[y+1][x+1]==='X') count++ //BottomRight
+
+                    board[y][x]=count
+                }
+            }
+            return board
+        }
+        const board = createField()
+        function openTiles(y,x,prevzero){
+            console.log('running')
+
+            if(!state[y][x+1]&&(board[y][x+1]===0||prevzero)&&x !== 9){
+                const onZero = board[y][x+1]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y,x+1,true)
+                    }
+                    else{
+                        openTiles(y,x+1,false)
+                    }
+                }, 100 ,onZero);
+                state[y][x+1]=true
+                squares[y][x+1].classList.remove('hidden')
+                squares[y][x+1].style.background = 'green'
+
+            }//Right
+            if(!state[y][x-1]&&(board[y][x-1]===0||prevzero)&&x !== 0){
+                const onZero = board[y][x-1]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y,x-1,true)
+                    }
+                    else{
+                        openTiles(y,x-1,false)
+                    }
+                }, 100 ,onZero);
+                state[y][x-1]=true
+                squares[y][x-1].classList.remove('hidden')
+                squares[y][x+-1].style.background = 'green'
+
+            }//Left
+            //if(y<=0||y>=9)return
+            if(y !== 0){
+                if(!state[y-1][x]&&(board[y-1][x]===0||prevzero)){
+                const onZero = board[y-1][x]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y-1,x,true)
+                    }
+                    else{
+                        openTiles(y-1,x,false)
+                    }
+                }, 100 ,onZero);
+                state[y-1][x]=true
+                squares[y-1][x].classList.remove('hidden')
+                squares[y-1][x].style.background = 'green'
+
+            }//Up
+            }
+            if(y !== 9){
+            if(!state[y+1][x]&&(board[y+1][x]===0||prevzero)){
+                const onZero = board[y+1][x]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y+1,x,true)
+                    }
+                    else{
+                        openTiles(y+1,x,false)
+                    }
+                }, 100 ,onZero);
+                state[y+1][x]=true
+                squares[y+1][x].classList.remove('hidden')
+                squares[y+1][x].style.background = 'green'
+
+            }//Down
+            }
+        }
+
+
+        console.log(board)
         let squares = []
-        let mineField = []
-        //Generate array
-        for(let i=0;i<100;i++){
-            
-        }
         //Generate Ui
-        for(let i=0;i<100;i++){
-            const element = document.createElement('div')
-            element.classList.add('item')
-            
-            element.addEventListener('click',()=>{
-                if(roomId===null) return
-                socket.send(JSON.stringify({
-                    'method':'put',
-                    'roomId':roomId,
-                    'mine':i
-                }))
-            })
-            squares.push(element)
-            container.appendChild(element)
+        for(let y=0;y<10;y++){
+            squares[y] = []
+            for(let x=0;x<10;x++){
+                const element = document.createElement('div')
+                element.classList.add('hidden')
+                element.classList.add('item')
+                element.addEventListener('click',()=>{
+                    element.style.background = 'green'
+                    element.classList.remove('hidden')
+                    setTimeout(() => {
+                        openTiles(y,x) 
+                    }, 100);
+                })
+                element.addEventListener('contextmenu',(e)=>{
+                    e.preventDefault()
+                    if(element.style.background=='red'){
+                        element.style.background='brown'
+                    }
+                    else{
+                        element.style.background='red'
+                    }
+
+                })
+                const e = container.appendChild(element)
+                console.log(y)
+                squares[y][x] = element
+
+                element.innerText = board[y][x]
+            }
+
         }
+        console.log(squares)
+
     </script>
 </body>
 </html>

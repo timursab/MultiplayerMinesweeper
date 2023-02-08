@@ -31,7 +31,20 @@
         const roomTxt = document.getElementById('roomTxt')
         const playersListCon = document.getElementById('playersList')
         const userNameTxt = document.getElementById('userNameTxt')
+        //wss://multiplayerminesweeper-production.up.railway.app/
         const socket = new WebSocket('wss://multiplayerminesweeper-production.up.railway.app/')
+
+        function createMineState(){
+            let mineState = []
+            for(let y=0;y<10;y++){
+                mineState[y]=[]
+                for(let x=0;x<10;x++){
+                    mineState[y][x]=false
+                }
+            }   
+            return mineState;
+        }
+        let state = createMineState()
         createBtn.addEventListener('click',()=>{
             socket.send(JSON.stringify({
                 'method':'create',
@@ -46,30 +59,70 @@
             }))
         })
         leaveBtn.addEventListener('click',()=>{
+            inGame= false
+            roomId = null
+            playersList = []
             socket.send(JSON.stringify({
                 'method':'leave',
             }))
+            for(let y=0;y<10;y++){
+                for(let x=0;x<10;x++){
+                    squares[y][x].remove()
+                }
+            }
+            squares = []
+            playersListCon.innerHTML = ''
         })
 
         const container = document.getElementById('container')
-
+        let inGame = false
         let squares = []
+        let board = []
+        //Generate Ui
+        function generateUi(){
+            for(let y=0;y<10;y++){
+                squares[y] = []
+                for(let x=0;x<10;x++){
+                    
+                    const element = document.createElement('div')
+                    element.classList.add('hidden')
+                    element.classList.add('item')
+                    element.addEventListener('click',()=>{
+                        if(!inGame)return;
+                        state[y][x] = true
+                        element.style.background = 'green'
+                        element.classList.remove('hidden')
+                        socket.send(JSON.stringify({
+                            'method':'put',
+                            'mine':{y:y,x:x},
+                            'roomId':roomId
+                        }))
+                        console.log(y,x)
+                        setTimeout(() => {
+                            openTiles(y,x) 
+                        }, 100);
+                    })
+                    element.addEventListener('contextmenu',(e)=>{
+                        e.preventDefault()
+                        if(!inGame)return;
+                        if(element.style.background=='red'){
+                            element.style.background='brown'
+                        }
+                        else{
+                            element.style.background='red'
+                        }
 
-        for(let i=0;i<100;i++){
-            const element = document.createElement('div')
-            element.classList.add('item')
-            
-            element.addEventListener('click',()=>{
-                if(roomId===null) return
-                socket.send(JSON.stringify({
-                    'method':'put',
-                    'roomId':roomId,
-                    'mine':i
-                }))
-            })
-            squares.push(element)
-            container.appendChild(element)
+                    })
+                    const e = container.appendChild(element)
+                    squares[y][x] = element
+
+                    element.innerText = board[y][x]
+
+                }
+
+            }
         }
+        
 
         socket.addEventListener('message',(message)=>{
             const data = JSON.parse(message.data)
@@ -87,37 +140,41 @@
                 ul.innerText = userNameTxt.value
                 playersList.push(ul)
                 playersListCon.appendChild(ul)
+                inGame = true
+                board = data.mines
+                generateUi(data.mines)
             }
             if(data.method === 'join'){
+                inGame = true
                 console.log('You Joined Room: '+data.roomId)
+                console.log(data.mines)
                 roomId = data.roomId
                 data.userNames.forEach(name => {
                     const ul = document.createElement('ul')
                     ul.innerText = name
                     playersList.push(ul)
                     playersListCon.appendChild(ul)
-                });
-                const mines = data.mines
-                for(let i=0;i<squares.length;i++){
-                    if(mines[i]===true){
-                    squares[i].style.background = 'green'
-                }
-                else{
-                    squares[i].style.background = 'red'
-                }
+                })
+                board = data.mines
+                generateUi(data.mines)
+                state = data.mineState
+                for(let y=0;y<10;y++){
+                    for (let x = 0; x < 10; x++) {
+                        if(data.mineState[y][x]===true){
+                            squares[y][x].style.background = 'green'
+                            squares[y][x].classList.remove('hidden')
+                        }
+                        else{
+                            squares[y][x].style.background = 'brown'
+                        }
+                    }
                 }
             }
             if(data.method === 'put'){
-                console.log('put')
-                const mines = data.mines
-                for(let i=0;i<squares.length;i++){
-                    if(mines[i]===true){
-                    squares[i].style.background = 'green'
-                }
-                else{
-                    squares[i].style.background = 'red'
-                }
-                }
+                const {y,x} = data.changedMine
+                squares[y][x].classList.remove('hidden')
+                openTiles(y,x)
+                squares[y][x].style.background = 'green'
             }
             if(data.method === 'newPlayer'){
                 const ul = document.createElement('ul')
@@ -136,9 +193,91 @@
                 });
             }
             if(data.method === 'leave'){
-                roomId = null
+                
+            }
+            if(data.method === 'lost'){
+                for(let y=0;y<10;y++){
+                    for(let x=0;x<10;x++){
+                        squares[y][x].remove()
+                    }
+                }
+                state = createMineState()
+                board = data.mines
+                generateUi(data.mines)
             }
         })
+
+
+
+        function openTiles(y,x,prevzero){
+            console.log('running')
+
+            if(!state[y][x+1]&&(board[y][x+1]===0||prevzero)&&x !== 9){
+                const onZero = board[y][x+1]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y,x+1,true)
+                    }
+                    else{
+                        openTiles(y,x+1,false)
+                    }
+                }, 100 ,onZero);
+                state[y][x+1]=true
+                squares[y][x+1].classList.remove('hidden')
+                squares[y][x+1].style.background = 'green'
+
+            }//Right
+            if(!state[y][x-1]&&(board[y][x-1]===0||prevzero)&&x !== 0){
+                const onZero = board[y][x-1]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y,x-1,true)
+                    }
+                    else{
+                        openTiles(y,x-1,false)
+                    }
+                }, 100 ,onZero);
+                state[y][x-1]=true
+                squares[y][x-1].classList.remove('hidden')
+                squares[y][x+-1].style.background = 'green'
+
+            }//Left
+            //if(y<=0||y>=9)return
+            if(y !== 0){
+                if(!state[y-1][x]&&(board[y-1][x]===0||prevzero)){
+                const onZero = board[y-1][x]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y-1,x,true)
+                    }
+                    else{
+                        openTiles(y-1,x,false)
+                    }
+                }, 100 ,onZero);
+                state[y-1][x]=true
+                squares[y-1][x].classList.remove('hidden')
+                squares[y-1][x].style.background = 'green'
+
+            }//Up
+            }
+            if(y !== 9){
+            if(!state[y+1][x]&&(board[y+1][x]===0||prevzero)){
+                const onZero = board[y+1][x]===0
+                setTimeout(() => {
+                    if(onZero){
+                        openTiles(y+1,x,true)
+                    }
+                    else{
+                        openTiles(y+1,x,false)
+                    }
+                }, 100 ,onZero);
+                state[y+1][x]=true
+                squares[y+1][x].classList.remove('hidden')
+                squares[y+1][x].style.background = 'green'
+
+            }//Down
+            }
+        }
     </script>
 </body>
 </html>

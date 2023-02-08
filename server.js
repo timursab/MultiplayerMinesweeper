@@ -44,6 +44,111 @@ function removeClientFromRoom(value) {
     }
 }
 
+function createMines(){
+    let mines = []
+    //Create the board (2d array)with all squares set to 0
+    for (let y = 0; y < 10; y++) {
+        mines[y]=[]
+        for (let x = 0; x < 10; x++) {
+            mines[y][x] = 0;
+        }
+    }
+    //Position the mines randomly
+    for(let i = 0; i < 15; i++){
+        const y = Math.floor(Math.random()*10)
+        const x = Math.floor(Math.random()*10)
+        mines[y][x] = 'X'
+    }
+    //Set mine count
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+            if(mines[y][x]==='X') continue
+            let count = 0
+            if(mines[y][x+1]==='X') count++ //Right
+            if(mines[y][x-1]==='X') count++ //Left
+            if(y !== 0 && mines[y-1][x]==='X') count++ //Top
+            if(y !== 9 && mines[y+1][x]==='X') count++ //Bottom
+            if(y !== 0 && mines[y-1][x-1]==='X') count++ //TopLeft
+            if(y !== 0 && mines[y-1][x+1]==='X') count++ //TopRight
+            if(y !== 9 && mines[y+1][x-1]==='X') count++ //BottomLeft
+            if(y !== 9 && mines[y+1][x+1]==='X') count++ //BottomRight
+
+            mines[y][x]=count
+        }
+    }
+    return mines
+}
+
+function openTiles(y,x,prevzero,state,board){
+    if(!state[y][x+1]&&(board[y][x+1]===0||prevzero)&&x !== 9){
+        const onZero = board[y][x+1]===0
+        setTimeout(() => {
+            if(onZero){
+                openTiles(y,x+1,true,state,board)
+            }
+            else{
+                openTiles(y,x+1,false,state,board)
+            }
+        }, 100 ,onZero);
+        state[y][x+1]=true
+
+    }//Right
+    if(!state[y][x-1]&&(board[y][x-1]===0||prevzero)&&x !== 0){
+        const onZero = board[y][x-1]===0
+        setTimeout(() => {
+            if(onZero){
+                openTiles(y,x-1,true,state,board)
+            }
+            else{
+                openTiles(y,x-1,false,state,board)
+            }
+        }, 100 ,onZero);
+        state[y][x-1]=true
+
+    }//Left
+    //if(y<=0||y>=9)return
+    if(y !== 0){
+        if(!state[y-1][x]&&(board[y-1][x]===0||prevzero)){
+        const onZero = board[y-1][x]===0
+        setTimeout(() => {
+            if(onZero){
+                openTiles(y-1,x,true,state,board)
+            }
+            else{
+                openTiles(y-1,x,false,state,board)
+            }
+        }, 100 ,onZero);
+        state[y-1][x]=true
+
+    }//Up
+    }
+    if(y !== 9){
+    if(!state[y+1][x]&&(board[y+1][x]===0||prevzero)){
+        const onZero = board[y+1][x]===0
+        setTimeout(() => {
+            if(onZero){
+                openTiles(y+1,x,true,state,board)
+            }
+            else{
+                openTiles(y+1,x,false,state,board)
+            }
+        }, 100 ,onZero);
+        state[y+1][x]=true
+
+    }//Down
+    }
+}
+function createMineState(){
+    let mineState = []
+    for(let y=0;y<10;y++){
+        mineState[y]=[]
+        for(let x=0;x<10;x++){
+            mineState[y][x]=false
+        }
+    }
+    return mineState;
+}
+
 wss.on('connection',(ws)=>{
     console.log('New connection')
     try{
@@ -57,13 +162,15 @@ wss.on('connection',(ws)=>{
                 const roomId = guid()
                 rooms[roomId]={
                     clients:[ws],
-                    mines:[]
+                    mines:createMines(),
+                    mineState:createMineState()
                 }
                 ws.send(JSON.stringify({
                     'method':'create',
-                    'roomId':roomId
+                    'roomId':roomId,
+                    'mines':rooms[roomId].mines
                 }))
-                console.log(rooms[roomId])
+                console.log(rooms[roomId].mines)
             }
             if(data.method === 'join'){
                 //Should check if client is already in a lobby
@@ -72,7 +179,6 @@ wss.on('connection',(ws)=>{
                 console.log(data.userName)
                 ws.userName=data.userName
                 rooms[data.roomId].clients.push(ws)
-                console.log(rooms)
 
                 //Create an array of userNames to send to the new connected client
                 let userNames = []
@@ -83,7 +189,8 @@ wss.on('connection',(ws)=>{
                     'method':'join',
                     'roomId':data.roomId,
                     'mines':rooms[data.roomId].mines,
-                    'userNames':userNames
+                    'userNames':userNames,
+                    'mineState':rooms[data.roomId].mineState
                 }))
                 //Send userName to all clients except the current one in that lobby
                 rooms[data.roomId].clients.forEach(c => {
@@ -96,14 +203,30 @@ wss.on('connection',(ws)=>{
             }
             if(data.method === 'put'){
                 //Should check if client is already in a lobby
-                rooms[data.roomId].mines[data.mine] = !rooms[data.roomId].mines[data.mine]
-                console.log(rooms)
+                openTiles(data.mine.y,data.mine.x,false,rooms[data.roomId].mineState,rooms[data.roomId].mines)
+
+                if(rooms[data.roomId].mines[data.mine.y][data.mine.x] === 'X'){
+
+                    rooms[data.roomId].mines = createMines()
+                    rooms[data.roomId].mineState = createMineState()
+
+                    rooms[data.roomId].clients.forEach(c => {
+                        c.send(JSON.stringify({
+                            'method':'lost',
+                            'mines':rooms[data.roomId].mines
+                        }))
+                    })
+                    return
+                }
+                rooms[data.roomId].mineState[data.mine.y][data.mine.x] = true
                 rooms[data.roomId].clients.forEach(c => {
+                    if(c==ws)return;
                     c.send(JSON.stringify({
                         'method':'put',
-                        'mines':rooms[data.roomId].mines
+                        'changedMine':{y:data.mine.y,x:data.mine.x}
                     }))
                 })
+                console.log(rooms[data.roomId].mineState)
             }
             if(data.method === 'leave'){
                 const room = findRoomFromId(ws.clientId)
