@@ -20,6 +20,8 @@
     </div>
     <div style="margin-top: 5px;">Players:</div>
     <li id="playersList"></li>
+    <div style="margin-top: 5px;">Rooms:</div>
+    <li id="roomsList"></li>
 
     <script>
         let clientId = null
@@ -30,6 +32,7 @@
         const leaveBtn = document.getElementById('leaveBtn')
         const roomTxt = document.getElementById('roomTxt')
         const playersListCon = document.getElementById('playersList')
+        const roomsListCon = document.getElementById('roomsList')
         const userNameTxt = document.getElementById('userNameTxt')
         //wss://multiplayerminesweeper-production.up.railway.app/
         const socket = new WebSocket('wss://multiplayerminesweeper-production.up.railway.app/')
@@ -123,13 +126,20 @@
             }
         }
         
-
+        let rooms = []
         socket.addEventListener('message',(message)=>{
             const data = JSON.parse(message.data)
-
+            
             if(data.method === 'open'){
                 console.log('Your Client Id: '+data.clientId)
                 clientId = data.clientId
+                rooms = data.rooms
+                roomsListCon.innerHTML = ''
+                rooms.forEach((id)=>{
+                    const ul = document.createElement('ul')
+                    ul.innerText = id
+                    roomsListCon.appendChild(ul)
+                })
             }
             if(data.method === 'create'){
                 console.log('Your Room Id: '+data.roomId)
@@ -210,6 +220,7 @@
 
 
         function openTiles(y,x,prevzero){
+            if(!inGame) return
             console.log('running')
 
             if(!state[y][x+1]&&(board[y][x+1]===0||prevzero)&&x !== 9){
