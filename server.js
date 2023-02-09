@@ -271,7 +271,8 @@ wss.on('connection',(ws)=>{
     ws.clientId = guid()
     ws.send(JSON.stringify({
         'method':'open',
-        'clientId':ws.clientId
+        'clientId':ws.clientId,
+        'rooms':Object.keys(rooms)
     }))
 })
 
